@@ -1,0 +1,22 @@
+{
+    "appKeys": {
+        "message": 1,
+        "status": 0
+    },
+    "capabilities": [
+        ""
+    ],
+    "companyName": "Orviwan",
+    "longName": "PNG Encoder",
+    "projectType": "native",
+    "resources": {
+        "media": []
+    },
+    "shortName": "PNG",
+    "uuid": "3cb695ac-ef79-4aa3-8826-e3693b2e8cfa",
+    "versionCode": 1,
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
+}
