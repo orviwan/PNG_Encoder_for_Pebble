@@ -30,6 +30,8 @@ freely, subject to the following restrictions:
 
 #include "lodepng_encode.h"
 
+#include <pebble.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -434,6 +436,7 @@ unsigned lodepng_color_mode_copy(LodePNGColorMode* dest, const LodePNGColorMode*
 
 static int lodepng_color_mode_equal(const LodePNGColorMode* a, const LodePNGColorMode* b)
 {
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "PRE lodepng_color_mode_equal()");
   size_t i;
   if(a->colortype != b->colortype) return 0;
   if(a->bitdepth != b->bitdepth) return 0;
@@ -449,6 +452,7 @@ static int lodepng_color_mode_equal(const LodePNGColorMode* a, const LodePNGColo
   {
     if(a->palette[i] != b->palette[i]) return 0;
   }
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "POST lodepng_color_mode_equal()");
   return 1;
 }
 
@@ -1874,7 +1878,9 @@ static unsigned preProcessScanlines(unsigned char** out, size_t* outsize, const 
                                     const LodePNGInfo* info_png, const LodePNGEncoderSettings* settings)
 {
   
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "preProcessScanlines()");
   unsigned bpp = lodepng_get_bpp(&info_png->color);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "lodepng_get_bpp()");
   unsigned error = 0;
 
   if(info_png->interlace_method == 0)
@@ -1989,7 +1995,9 @@ unsigned lodepng_encode(unsigned char** out, size_t* outsize,
   state->error = 0;
 
   lodepng_info_init(&info);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "lodepng_info_init()");
   lodepng_info_copy(&info, &state->info_png);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "lodepng_info_copy()");
 
   if((info.color.colortype == LCT_PALETTE || state->encoder.force_palette)
       && (info.color.palettesize == 0 || info.color.palettesize > 256))
@@ -2017,30 +2025,45 @@ unsigned lodepng_encode(unsigned char** out, size_t* outsize,
   if(state->error) return state->error; 
   state->error = checkColorValidity(state->info_raw.colortype, state->info_raw.bitdepth);
   if(state->error) return state->error; 
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "checkColorValidity()");
 
   if(!lodepng_color_mode_equal(&state->info_raw, &info.color))
   {
     unsigned char* converted;
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "PRE lodepng_get_bpp()");
     size_t size = (w * h * lodepng_get_bpp(&info.color) + 7) / 8;
-
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "lodepng_get_bpp()");
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "PRE lodepng_malloc()");
     converted = (unsigned char*)lodepng_malloc(size);
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "lodepng_malloc()");
     if(!converted && size) state->error = 83; 
     if(!state->error)
     {
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "PRE lodepng_convert()");
       state->error = lodepng_convert(converted, image, &info.color, &state->info_raw, w, h);
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "lodepng_convert()");
     }
     if(!state->error) preProcessScanlines(&data, &datasize, converted, w, h, &info, &state->encoder);
     lodepng_free(converted);
   }
-  else preProcessScanlines(&data, &datasize, image, w, h, &info, &state->encoder);
+	else {
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "PRE preProcessScanlines()");
+		preProcessScanlines(&data, &datasize, image, w, h, &info, &state->encoder);
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "POST preProcessScanlines()");
+	}
 
+	
   ucvector_init(&outv);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "ucvector_init()");
+	
+	
   while(!state->error) 
   {
     writeSignature(&outv);
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "writeSignature()");
     
     addChunk_IHDR(&outv, w, h, info.color.colortype, info.color.bitdepth, info.interlace_method);
-
+APP_LOG(APP_LOG_LEVEL_DEBUG, "addChunk_IHDR()");
     
     if(info.color.colortype == LCT_PALETTE)
     {
@@ -2070,7 +2093,9 @@ unsigned lodepng_encode(unsigned char** out, size_t* outsize,
   }
 
   lodepng_info_cleanup(&info);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "lodepng_info_cleanup()");
   lodepng_free(data);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "lodepng_free()");
   
   *out = outv.data;
   *outsize = outv.size;
@@ -2084,11 +2109,13 @@ unsigned lodepng_encode_memory(unsigned char** out, size_t* outsize, const unsig
   unsigned error;
   LodePNGState state;
   lodepng_state_init(&state);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "lodepng_state_init()");
   state.info_raw.colortype = colortype;
   state.info_raw.bitdepth = bitdepth;
   state.info_png.color.colortype = colortype;
   state.info_png.color.bitdepth = bitdepth;
   lodepng_encode(out, outsize, image, w, h, &state);
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "lodepng_encode()");
   error = state.error;
   lodepng_state_cleanup(&state);
   return error;

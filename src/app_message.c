@@ -1,65 +1,40 @@
 #include <pebble.h>
 #include "lodepng_encode.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 	
-void deinit(void);
-
-void png_encode(const unsigned char* image)
-{
-  unsigned char* png;
-  size_t pngsize;
-  unsigned error = lodepng_encode_memory(&png, &pngsize, image, 144, 168, LCT_GREY, 1);
-
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "PNG Encode Error: %d", error);
-	
-  free(png);	
-
-}
-
 Window *window;	
 
 static TextLayer *s_time_layer;
 static char time_text[] = "00:00:00";
+
+static bool is_encoding = false;
 	
 // Key values for AppMessage Dictionary
 enum {
 	STATUS_KEY = 0,	
 	MESSAGE_KEY = 1
 };
+	
+static uint8_t* imagedata;
 
-// Write message to buffer & send
-void send_message(void){
-	DictionaryIterator *iter;
-	
-	app_message_outbox_begin(&iter);
-	dict_write_uint8(iter, STATUS_KEY, 0x1);
-	
-	dict_write_end(iter);
-  	app_message_outbox_send();
+static void bmpData(GBitmap *bmp) {
+	  imagedata = malloc(bmp->row_size_bytes * bmp->bounds.size.h);
+    for (int i=0; i<bmp->row_size_bytes*bmp->bounds.size.h; i++) {
+	     imagedata[i] = ((uint8_t *)bmp->addr)[i];
+    }	
 }
 
-// Called when a message is received from PebbleKitJS
-static void in_received_handler(DictionaryIterator *received, void *context) {
-	Tuple *tuple;
-	
-	tuple = dict_find(received, STATUS_KEY);
-	if(tuple) {
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Received Status: %d", (int)tuple->value->uint32); 
-	}
-	
-	tuple = dict_find(received, MESSAGE_KEY);
-	if(tuple) {
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Received Message: %s", tuple->value->cstring);
-	}}
+void png_encode(const unsigned char* image)
+{
+  unsigned char* png;
+  size_t pngsize;
 
-// Called when an incoming message from PebbleKitJS is dropped
-static void in_dropped_handler(AppMessageResult reason, void *context) {	
-}
+  unsigned error = lodepng_encode_memory(&png, &pngsize, image, 144, 168, LCT_GREY, 1);
 
-// Called when PebbleKitJS does not acknowledge receipt of a message
-static void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "PNG Encode Error: %d", error);
+
+  free(png);	
 }
 
 static void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
@@ -76,13 +51,19 @@ static void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
 }
 
 static void bg_update_proc(Layer *layer, GContext *ctx) {
-	GBitmap *fb = graphics_capture_frame_buffer(ctx); 
-	
-	//////////png_encode((unsigned char*)fb->addr);///////////////////
-	
-	graphics_release_frame_buffer(ctx, fb); 
+	if(!is_encoding) {
+		is_encoding = true;
+		GBitmap *fb = graphics_capture_frame_buffer(ctx); 
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Captured framebuffer");
+		bmpData(fb);	
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Converted bitmap");
+		png_encode((const unsigned char*)imagedata);	
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Encoded PNG");
+		graphics_release_frame_buffer(ctx, fb); 
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Released framebuffer");	
+		//is_encoding = false;
+	}
 
-	
 }
 
 void init(void) {
@@ -127,3 +108,39 @@ int main( void ) {
 	app_event_loop();
 	deinit();
 }
+
+/*
+
+// Write message to buffer & send
+void send_message(void){
+	DictionaryIterator *iter;
+	
+	app_message_outbox_begin(&iter);
+	dict_write_uint8(iter, STATUS_KEY, 0x1);
+	
+	dict_write_end(iter);
+  	app_message_outbox_send();
+}
+
+// Called when a message is received from PebbleKitJS
+static void in_received_handler(DictionaryIterator *received, void *context) {
+	Tuple *tuple;
+	
+	tuple = dict_find(received, STATUS_KEY);
+	if(tuple) {
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Received Status: %d", (int)tuple->value->uint32); 
+	}
+	
+	tuple = dict_find(received, MESSAGE_KEY);
+	if(tuple) {
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Received Message: %s", tuple->value->cstring);
+	}}
+
+// Called when an incoming message from PebbleKitJS is dropped
+static void in_dropped_handler(AppMessageResult reason, void *context) {	
+}
+
+// Called when PebbleKitJS does not acknowledge receipt of a message
+static void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
+}
+*/
